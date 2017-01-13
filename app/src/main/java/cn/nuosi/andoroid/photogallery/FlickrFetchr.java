@@ -3,11 +3,16 @@ package cn.nuosi.andoroid.photogallery;
 import android.net.Uri;
 import android.util.Log;
 
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
+
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.util.List;
 
 /**
  * ee68082f3e386737b423c1eaa6781261
@@ -33,8 +38,37 @@ public class FlickrFetchr {
                     .build().toString();
             String jsonStr = getUrlString(url);
             Log.i(TAG, "Received JSON: " + jsonStr);
+            JSONObject jsonBody = new JSONObject(jsonStr);
         } catch (IOException e) {
             Log.e(TAG, "Failed to fetch items", e);
+        } catch (JSONException e) {
+            e.printStackTrace();
+        }
+    }
+
+    /**
+     * Json to ObjectBean
+     *
+     * @param items
+     * @param jsonBody
+     */
+    private void parseItemsList(List<GalleryItem> items, JSONObject jsonBody)
+            throws IOException, JSONException {
+        JSONObject photosJsonObject = jsonBody.getJSONObject("photos");
+        JSONArray photoJsonArray = photosJsonObject.getJSONArray("photo");
+        for (int i=0;i<photoJsonArray.length();i++) {
+            JSONObject photoJsonObject = photoJsonArray.getJSONObject(i);
+
+            GalleryItem item = new GalleryItem();
+            item.setId(photoJsonObject.getString("id"));
+            item.setCaption(photoJsonObject.getString("title"));
+            // 是否包含该键值对
+            if (!photoJsonObject.has("url_s")) {
+                continue;
+            }
+
+            item.setUrl(photoJsonObject.getString("url_s"));
+            items.add(item);
         }
     }
 
