@@ -1,14 +1,18 @@
 package cn.nuosi.andoroid.photogallery;
 
+import android.os.AsyncTask;
 import android.os.Bundle;
 import android.support.annotation.Nullable;
 import android.support.v4.app.Fragment;
 import android.support.v7.widget.GridLayoutManager;
 import android.support.v7.widget.RecyclerView;
 import android.support.v7.widget.StaggeredGridLayoutManager;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+
+import java.io.IOException;
 
 /**
  * Created by Elder on 2017/1/12.
@@ -27,6 +31,7 @@ public class PhotoGalleryFragment extends Fragment {
     public void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setRetainInstance(true);
+        new FetchItemTask().execute();
     }
 
     @Nullable
@@ -42,5 +47,14 @@ public class PhotoGalleryFragment extends Fragment {
                 3,StaggeredGridLayoutManager.VERTICAL));
 
         return layout;
+    }
+
+    private class FetchItemTask extends AsyncTask<Void,Void,Void> {
+
+        @Override
+        protected Void doInBackground(Void... params) {
+            new FlickrFetchr().fetchItems();
+            return null;
+        }
     }
 }
