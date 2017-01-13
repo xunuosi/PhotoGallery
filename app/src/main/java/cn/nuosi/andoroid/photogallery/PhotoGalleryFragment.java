@@ -10,6 +10,7 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -23,6 +24,12 @@ public class PhotoGalleryFragment extends Fragment {
 
     private RecyclerView mPhotoRecyclerView;
     private List<GalleryItem> mItems = new ArrayList<>();
+    private int page = 1;
+    private boolean firstLoad = true;
+    private PhotoAdapter mPhotoAdapter;
+
+    private FetchItemTask mFetchItemTask;
+    private StaggeredGridLayoutManager mLayoutManager;
 
     public static PhotoGalleryFragment newInstance() {
         return new PhotoGalleryFragment();
@@ -32,7 +39,7 @@ public class PhotoGalleryFragment extends Fragment {
     public void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setRetainInstance(true);
-        new FetchItemTask().execute();
+        new FetchItemTask().execute(page);
     }
 
     @Nullable
@@ -48,13 +55,60 @@ public class PhotoGalleryFragment extends Fragment {
                 3,StaggeredGridLayoutManager.VERTICAL));
 
         setupAdapter();
-
+        setupListener();
         return layout;
+    }
+
+    /**
+     * RecyclerView上拉加载数据的功能
+     */
+    private void setupListener() {
+        mPhotoRecyclerView.addOnScrollListener(new RecyclerView.OnScrollListener() {
+            @Override
+            public void onScrollStateChanged(RecyclerView recyclerView, int newState) {
+                super.onScrollStateChanged(recyclerView, newState);
+                // 当前RecyclerView显示出来的最后一个的item的position
+                int lastPosition = -1;
+                if (newState == RecyclerView.SCROLL_STATE_IDLE) {// 停止滚动时加载数据
+                    StaggeredGridLayoutManager layoutManager =
+                            (StaggeredGridLayoutManager) recyclerView.getLayoutManager();
+                    //因为StaggeredGridLayoutManager的特殊性可能导致最后显示的item存在多个，所以这里取到的是一个数组
+                    //得到这个数组后再取到数组中position值最大的那个就是最后显示的position值了
+                    int[] lastPositions = new int[layoutManager.getSpanCount()];
+                    lastPositions = layoutManager.findLastVisibleItemPositions(lastPositions);
+                    lastPosition = findMax(lastPositions);
+                    // 最后item的position是否等于itemCount总数-1也就是最后一个item的position
+                    // 如果相等则说明已经滑动到最后了
+                    if (lastPosition == layoutManager.getItemCount() - 1) {
+                        firstLoad = false;
+                        page++;
+                        Toast.makeText(getActivity(), "正在加载第 " + page + " 页", Toast.LENGTH_SHORT).show();
+                        new FetchItemTask().execute(page);
+                    }
+                }
+            }
+        });
+    }
+
+    /**
+     * 判断最后显示Item的最大下标
+     * @param lastPositions
+     * @return
+     */
+    private int findMax(int[] lastPositions) {
+        int max = lastPositions[0];
+        for (int value : lastPositions) {
+            if (value > max) {
+                max = value;
+            }
+        }
+        return max;
     }
 
     private void setupAdapter() {
         if (isAdded()) {// Return true if the fragment is currently added to its activity.
-            mPhotoRecyclerView.setAdapter(new PhotoAdapter(mItems));
+            mPhotoAdapter = new PhotoAdapter(mItems);
+            mPhotoRecyclerView.setAdapter(mPhotoAdapter);
         }
     }
 
@@ -111,17 +165,24 @@ public class PhotoGalleryFragment extends Fragment {
         }
     }
 
-    private class FetchItemTask extends AsyncTask<Void,Void,List<GalleryItem>> {
+    private class FetchItemTask extends AsyncTask<Integer,Void,List<GalleryItem>> {
 
         @Override
-        protected List<GalleryItem> doInBackground(Void... params) {
-            return new FlickrFetchr().fetchItems();
+        protected List<GalleryItem> doInBackground(Integer... params) {
+            Integer page = params[0];
+            return new FlickrFetchr().fetchItems(page);
         }
 
         @Override
         protected void onPostExecute(List<GalleryItem> galleryItems) {// 该方法在主线程运行
-            mItems = galleryItems;
-            setupAdapter();
+            if (firstLoad) {
+                mItems = galleryItems;
+                setupAdapter();
+                return;
+            } else {
+                mItems.addAll(galleryItems);
+                mPhotoAdapter.notifyDataSetChanged();
+            }
         }
     }
 }
