@@ -1,5 +1,7 @@
 package cn.nuosi.andoroid.photogallery;
 
+import android.graphics.Bitmap;
+import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.Drawable;
 import android.os.AsyncTask;
 import android.os.Bundle;
@@ -45,7 +47,17 @@ public class PhotoGalleryFragment extends Fragment {
         super.onCreate(savedInstanceState);
         setRetainInstance(true);
         new FetchItemTask().execute(page);
-        mThumbnailDownloader = new ThumbnailDownloader<>();
+
+        Handler responseHandler = new Handler();
+        mThumbnailDownloader = new ThumbnailDownloader<>(responseHandler);
+        mThumbnailDownloader.setThumbnailDownloadListener(new ThumbnailDownloader.ThumbnailDownloadListener<PhotoHolder>() {
+            @Override
+            public void onThumbnailDownloaded(PhotoHolder target, Bitmap thumbnail) {
+                // bitmap to change Drawable
+                BitmapDrawable drawable = new BitmapDrawable(getResources(), thumbnail);
+                target.bindGalleryItem(drawable);
+            }
+        });
         mThumbnailDownloader.start();
         // Get current thread Looper
         // 在调用getLooper（）方法之前，没办法保证onLooperPrepaerd（）方法已得到调用;
@@ -57,6 +69,8 @@ public class PhotoGalleryFragment extends Fragment {
     @Override
     public void onDestroy() {
         super.onDestroy();
+        // Remove Message Queue
+        mThumbnailDownloader.clearQueue();
         mThumbnailDownloader.quit();
         Log.i(TAG, "Background thread destroyed");
     }
