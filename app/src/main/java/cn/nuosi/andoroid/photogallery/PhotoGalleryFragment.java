@@ -1,15 +1,19 @@
 package cn.nuosi.andoroid.photogallery;
 
+import android.graphics.drawable.Drawable;
 import android.os.AsyncTask;
 import android.os.Bundle;
+import android.os.Handler;
 import android.support.annotation.Nullable;
 import android.support.v4.app.Fragment;
+import android.support.v4.content.ContextCompat;
 import android.support.v7.widget.RecyclerView;
 import android.support.v7.widget.StaggeredGridLayoutManager;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.TextView;
+import android.widget.ImageView;
 import android.widget.Toast;
 
 import java.util.ArrayList;
@@ -27,6 +31,7 @@ public class PhotoGalleryFragment extends Fragment {
     private int page = 1;
     private boolean firstLoad = true;
     private PhotoAdapter mPhotoAdapter;
+    private ThumbnailDownloader<PhotoHolder> mThumbnailDownloader;
 
     private FetchItemTask mFetchItemTask;
     private StaggeredGridLayoutManager mLayoutManager;
@@ -40,6 +45,19 @@ public class PhotoGalleryFragment extends Fragment {
         super.onCreate(savedInstanceState);
         setRetainInstance(true);
         new FetchItemTask().execute(page);
+        mThumbnailDownloader = new ThumbnailDownloader<>();
+        mThumbnailDownloader.start();
+        // Get current thread Looper
+        // 在调用getLooper（）方法之前，没办法保证onLooperPrepaerd（）方法已得到调用
+        mThumbnailDownloader.getLooper();
+        Log.i(TAG, "Background thread started");
+    }
+
+    @Override
+    public void onDestroy() {
+        super.onDestroy();
+        mThumbnailDownloader.quit();
+        Log.i(TAG, "Background thread destroyed");
     }
 
     @Nullable
@@ -130,8 +148,9 @@ public class PhotoGalleryFragment extends Fragment {
 
         @Override
         public PhotoHolder onCreateViewHolder(ViewGroup parent, int viewType) {
-            TextView textView = new TextView(getActivity());
-            return new PhotoHolder(textView);
+            LayoutInflater inflater = LayoutInflater.from(getActivity());
+            View view = inflater.inflate(R.layout.gallery_item, parent, false);
+            return new PhotoHolder(view);
         }
 
         @Override
@@ -140,8 +159,12 @@ public class PhotoGalleryFragment extends Fragment {
 //            ViewGroup.LayoutParams layoutParams = holder.itemView.getLayoutParams();
 //            layoutParams.height = heights.get(position);
 //            holder.itemView.setLayoutParams(layoutParams);
-
-            holder.bindGalleryItem(mGalleryItems.get(position));
+            GalleryItem galleryItem = mGalleryItems.get(position);
+            Drawable placeholder = ContextCompat
+                    .getDrawable(getActivity(), R.drawable.bill_up_close);
+            holder.bindGalleryItem(placeholder);// Load default Image
+            // 异步加载真实地址的图片
+            mThumbnailDownloader.queueThumbnail(holder, galleryItem.getUrl());
         }
 
         @Override
@@ -152,17 +175,20 @@ public class PhotoGalleryFragment extends Fragment {
 
 
     private class PhotoHolder extends RecyclerView.ViewHolder {
-        private TextView mTitleTextView;
+        private ImageView mItemImageView;
 
         public PhotoHolder(View itemView) {
             super(itemView);
 
-            mTitleTextView = (TextView) itemView;
+            mItemImageView = (ImageView) itemView
+                    .findViewById(R.id.fragment_photo_gallery_image_view);
+
         }
 
-        public void bindGalleryItem(GalleryItem item) {
-            mTitleTextView.setText(item.toString());
+        public void bindGalleryItem(Drawable drawable) {
+            mItemImageView.setImageDrawable(drawable);
         }
+
     }
 
     private class FetchItemTask extends AsyncTask<Integer,Void,List<GalleryItem>> {
