@@ -48,7 +48,8 @@ public class PhotoGalleryFragment extends Fragment {
         mThumbnailDownloader = new ThumbnailDownloader<>();
         mThumbnailDownloader.start();
         // Get current thread Looper
-        // 在调用getLooper（）方法之前，没办法保证onLooperPrepaerd（）方法已得到调用
+        // 在调用getLooper（）方法之前，没办法保证onLooperPrepaerd（）方法已得到调用;
+        // 调用该方法可以内部线程被等待直到Looper对象被创建好之后再被唤醒
         mThumbnailDownloader.getLooper();
         Log.i(TAG, "Background thread started");
     }
